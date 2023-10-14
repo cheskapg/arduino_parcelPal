@@ -29,7 +29,7 @@ void setup() {
   BTSerial.begin(9600);  // Bluetooth module baud rate
 
   // Define pin modes
-  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(TRIG_PIN, OUTPUT);  //Ultrasonic pins
   pinMode(ECHO_PIN, INPUT);
 
   pinMode(MAIN_DOOR_VALVE, OUTPUT);
@@ -147,14 +147,14 @@ void setup() {
 //   }
 // }
 void loop() {
-  // char BTTEST = BTSerial.read(); 
+  // char BTTEST = BTSerial.read();
   // // int pinState = digitalRead(pinbitch);
   // Serial.print("TRIGGER State: ");
   // Serial.println(BTTEST);
 
   //  // Monitor the pin continuously
   // // Keep monitoring the pin
-  // char newBTTEST = BTSerial.read(); 
+  // char newBTTEST = BTSerial.read();
   // if (newBTTEST != BTTEST) {
   //   BTTEST = newBTTEST;
   //   Serial.print("COMMANDState: ");
@@ -170,8 +170,9 @@ void loop() {
   Serial.print("trapPIN State: ");
   Serial.println(trapPIN);
   delay(500);  // need DELAY
+  BTSerial.println("Waiting");
 
- 
+
 
   int newReed = digitalRead(REED_SWITCH_PIN_DOOR);
   if (newReed != REEDPIN) {
@@ -189,27 +190,29 @@ void loop() {
   }
   int DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
 
-  if (BTSerial.available()) {
-    
-    char receivedChar = BTSerial.read();  // Read the character received from Bluetooth
-      char BTTEST = BTSerial.read(); 
-  // int pinState = digitalRead(pinbitch);
-     Serial.print("TRIGGER State: ");
-     Serial.println(BTTEST);
 
-   // Monitor the pin continuously
-  // Keep monitoring the pin
-  char newBTTEST = BTSerial.read(); 
-  if (newBTTEST != BTTEST) {
-    BTTEST = newBTTEST;
-    Serial.print("COMMANDState: ");
-    Serial.println(BTTEST);
-    delay(500);  // need DELAY
-  }
+  if (BTSerial.available()) {
+    char receivedChar = "Waiting";
+    receivedChar = BTSerial.read();  // Read the character received from Bluetooth
+
+    while (receivedChar == "Waiting") {
+      BTSerial.println("Waiting");
+      receivedChar = BTSerial.read();  // Read the character received from Bluetooth
+
+      delay(1000);  // 1 second delay
+    }
+    // char message = "none";
+
+    // while (message == "none") {
+    //   delay(1000);  // 1 second delay
+    // }
+
+
     // Check for the received character and perform actions based on cases
     switch (receivedChar) {
       case 'A':
-      
+        BTSerial.println("Waiting message");
+
         // Case A: Do something for Case A
         Serial.println("Received Case A");
         digitalWrite(MAIN_DOOR_VALVE, LOW);  // Opens the main door valve
@@ -217,18 +220,24 @@ void loop() {
 
         // Wait for the door to be closed
         while (DOORSENSOR == HIGH) {
+
           Serial.println("Door is waiting to open");
+          delay(500);
           DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
         }
         while (DOORSENSOR == LOW) {
+          delay(500);
+
           Serial.println("Door is open");
+          delay(500);
+
           digitalWrite(REED_SWITCH_PIN_DOOR, LOW);
           DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
         }
         delay(500);  // need DELAY
-
         // Check if the door is closed using the reed switch
         if (DOORSENSOR == HIGH) {
+
           digitalWrite(MAIN_DOOR_VALVE, HIGH);  // Closes the main door valve if the door sensor detects that the door is closed
 
           // Check the HC-SR04 sensor values
@@ -242,6 +251,7 @@ void loop() {
             digitalWrite(TRAP_DOOR_VALVE, HIGH);
             stopMotor();
             delay(500);  // need DELAY
+            // BTSerial.println("ParcelSecured");  // Call back for sequence 1
 
             // Start the motor backward until the contact reed switch detects contact
             while (!isContactDetected()) {
@@ -256,7 +266,8 @@ void loop() {
             digitalWrite(COMP1_VALVE, LOW);   // Open compartment 1
             delay(1000);                      // Open compartment 1 for 1 second
             digitalWrite(COMP1_VALVE, HIGH);  // Close compartment 1
-            BTSerial.println("AA");           // Call back for sequence 1
+            BTSerial.println("AA");
+            delay(1000);  // 1 second delay
           }
         }
         break;
@@ -307,13 +318,14 @@ void loop() {
             digitalWrite(COMP2_VALVE, LOW);   // Open compartment 2
             delay(1000);                      // Open compartment 2 for 1 second
             digitalWrite(COMP2_VALVE, HIGH);  // Close compartment 2
-            BTSerial.println("BB");           // Call back for sequence 2
+            BTSerial.println("BB");
           }
         }
         break;
 
       case 'C':
         // Case C: Add your code for Case C here
+
         Serial.println("Received Case C");
         digitalWrite(MAIN_DOOR_VALVE, LOW);  // Opens the main door valve
         delay(2000);                         // need DELAY
@@ -353,13 +365,16 @@ void loop() {
               // Keep running the motor backward until contact is detected
             }
             stopMotor();
+
+            delay(1000);  //Delay
+
             BTSerial.println("CC");  // Call back for sequence 3
           }
         }
         break;
 
       case 'D':
-        // Case D: Add your code for Case C here
+        // Case D: Add your code for Case C here MOBILE PAYMENT
         Serial.println("Received Case D");
         digitalWrite(MAIN_DOOR_VALVE, LOW);  // Opens the main door valve
         delay(2000);                         // need DELAY
@@ -379,7 +394,7 @@ void loop() {
         // Check if the door is closed using the reed switch
         if (DOORSENSOR == HIGH) {
           digitalWrite(MAIN_DOOR_VALVE, HIGH);  // Closes the main door valve if the door sensor detects that the door is closed
-
+                                                //IF NO PACKAGE SEND TO ANDROID NO PACKAGE DETECTED REUNLOCK SEQUENCE AGAIN
           // Check the HC-SR04 sensor values
           if (isDistanceDecreasing()) {
             // Start the motor forward for 4 seconds
@@ -399,8 +414,10 @@ void loop() {
               // Keep running the motor backward until contact is detected
             }
             stopMotor();
-            BTSerial.println("DD");  // Call back for sequence 3
+          } else {
+            digitalWrite(MAIN_DOOR_VALVE, LOW);  //
           }
+          BTSerial.println("Mobile");
         }
         break;
       default:
