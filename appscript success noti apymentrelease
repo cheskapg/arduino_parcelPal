@@ -1,0 +1,1070 @@
+var ss = SpreadsheetApp.openByUrl("https://docs.google.com/spreadsheets/d/1LpNVe-uLQ7Ig6qlXQNdW3jVAB_bpfyMMZwXnvkW3KkY/edit#gid=0");
+var sheetUser = ss.getSheetByName('User');
+var sheetParcelList = ss.getSheetByName('ParcelList');
+var sheetPayment = ss.getSheetByName('Payment');
+
+var sheetQr = ss.getSheetByName('QR');
+var genPaymentId;
+var genParcelId;
+var genUserId;
+function doPost(e) {
+  var action = e.parameter.action;
+
+  if (action == 'addUser') {
+    return addUserItem(e);
+  }
+  if (action == 'insertUserToken') {
+    var token = e.parameter.token;
+    var userEmail = e.parameter.userEmail;
+    var deviceModel = e.parameter.device;
+    var userID = getUserIdfromUserwithEmail(userEmail);
+    addUserIdandTokenToDeviceLogin(userID,token, deviceModel);    
+    //  checkUserEmailAndInsertToken( userEmail, token);
+     return ContentService.createTextOutput("TokenInserted" + token).setMimeType(ContentService.MimeType.TEXT);
+
+  }
+    if (action == 'logoutUser') {
+    var token = e.parameter.token;
+    logOutDeleteDeviceLogin(token)
+     return ContentService.createTextOutput("Logged Out" + token).setMimeType(ContentService.MimeType.TEXT);
+  }
+  if (action == 'registerUser') {
+    return registerUserItem(e);
+  }
+  if (action == 'addParcelItem'){
+    return addParcelItem(e);
+  }
+  if (action == 'addParcelItemOnly'){
+   
+    return  addParcelItemOnly(e);
+  }
+  if (action =='addQrItem'){
+    return addQr(e); 
+  } 
+  
+  if (action == 'deleteParcelByParcelIdPayment'){
+     deleteRowsByValue(sheetPayment, 1, parcelId);
+     return ContentService.createTextOutput("Delete from Payment change Success").setMimeType(ContentService.MimeType.TEXT);
+
+  }
+  if (action == 'addCourierMobileWallet'){
+    var trackingID = e.parameter.trackingID;
+    var courierName = e.parameter.courierName;
+    var courierMobileWallet = e.parameter.courierMobileWallet;
+    var mobileWalletType = e.parameter.mobileWalletType;
+    
+     addCourierMobileInfo(e,trackingID, courierName, courierMobileWallet, mobileWalletType);
+       return ContentService.createTextOutput("Courier Update Success").setMimeType(ContentService.MimeType.TEXT);
+
+  }
+   if (action == 'addProofPaymentImage'){
+    var trackingID = e.parameter.trackingID;
+    var imageBlob = e.parameter.imageBlob;
+    
+    addProofPaymentImage(trackingID,imageBlob);
+    return ContentService.createTextOutput("addProofPaymentImage Update Success").setMimeType(ContentService.MimeType.TEXT);
+  }
+
+  if (action == 'deleteParcelByParcelId') {
+    var parcelId = e.parameter.parcelId;
+    deleteRowsByValue(sheetParcelList, 0, parcelId);
+    deleteRowsByValue(sheetPayment, 1, parcelId);
+
+    return ContentService.createTextOutput("Delete Success").setMimeType(ContentService.MimeType.TEXT);
+  }
+ if (action == 'updateUserInfo') {
+    var userId = e.parameter.userId;
+    
+    var userEmail =  e.parameter.email;
+    var userPhone =  e.parameter.phone;
+    var userPass =   e.parameter.pass;
+     
+  
+   updateUserValue(sheetUser, userId, userEmail, userPass, userPhone);
+  
+  return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+   }
+  
+   if (action == 'updateParcelByParcelId1') {
+    var parcelId = e.parameter.parcelId;
+    var updatedValues = [
+      e.parameter.parcel_id,
+      e.parameter.tracking_id.toUpperCase(),
+      e.parameter.user_id,
+      e.parameter.orderTotal,
+      e.parameter.paymentType_id,
+      e.parameter.courier_id,
+      e.parameter.productName,
+      e.parameter.deliveryStatus,
+      e.parameter.order_id,
+      e.parameter.date_received
+  ];
+   updateRowsByValue(sheetParcelList, 0, parcelId, updatedValues);
+  
+  return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+   }
+   if (action == 'updateParcelByParcelId') {
+    var parcelId = e.parameter.parcelId;
+    var parcel_id = e.parameter.parcel_id;
+    var tracking_id = e.parameter.tracking_id.toUpperCase();
+    var user_id = 'e.parameter.user_id';
+    var orderTotal = e.parameter.orderTotal;
+    var paymentType = e.parameter.paymentType_id;
+    var paymentId = e.parameter.payment_id;
+    var productName = e.parameter.productName;
+    var deliveryStatus = e.parameter.deliveryStatus;
+    var order_id = e.parameter.order_id;
+    var date_received = e.parameter.date_received;
+    var paymentCompartment = e.parameter.payment_Comp;
+
+      var updatedValuesCOD = [
+      parcelId,
+      tracking_id,
+      user_id,
+      orderTotal,
+      paymentType,
+      paymentId,
+      productName,
+      deliveryStatus,
+      order_id,
+      date_received,
+      paymentCompartment
+  ];   
+     var updatedValuesWAL = [
+      parcelId,
+      tracking_id,
+      user_id,
+      orderTotal,
+      paymentType,
+      paymentId,
+      productName,
+      deliveryStatus,
+      order_id,
+      date_received,
+      'None'
+  ];
+   var updatedValuesPrepaid= [
+      parcelId,
+      tracking_id,
+      user_id,
+      orderTotal,
+      paymentType,
+      paymentId,
+      productName,
+      deliveryStatus,
+      order_id,
+      date_received,
+      'None'
+  ];
+   
+   if (paymentType == 'Prepaid'){
+   updateRowsByValue(sheetParcelList, 0, parcelId, updatedValuesPrepaid);
+   deleteRowsByValue(sheetPayment, 1, parcelId);
+
+  }
+
+  if (paymentType == 'Cash on Delivery'){
+   updateRowsByValue(sheetParcelList, 0, parcelId, updatedValuesCOD);
+  //
+  deleteRowsByValue(sheetPayment, 1, parcelId);
+
+
+  }
+  if(paymentType == 'Mobile Wallet'){
+       updateRowsByValue(sheetParcelList, 0, parcelId, updatedValuesWAL);
+
+     checkAndAppendParcelId(parcelId, paymentId, paymentType, tracking_id)
+  return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+    }
+  }
+}
+
+
+function doGet(e) {
+  var action = e.parameter.action;
+  
+  if (action == 'getParcels') {
+    var userId = e.parameter.userId; // Get the userId parameter from the request
+
+    return getParcelItemsByUser(userId);
+  }
+   if (action == 'getPayMobileInfoByParcelId') {
+    var parcelId = e.parameter.parcelId; // Get the userId parameter from the request
+
+    return getPayMobileInfoByParcelId(parcelId);
+  }
+  
+    if (action == 'getUserInfo') {
+    var userId = e.parameter.userId; // Get the userId parameter from the request
+
+    return getUserInfo(userId);
+  }
+  if (action == 'getUsers') {
+    return getUserItems(e);
+  }
+    if (action == 'getQR') {
+    return getQRList(e);
+  }
+    if (action == 'getUserId') {
+    var userEmail = e.parameter.email;
+          return ContentService.createTextOutput( getUserId(userEmail)).setMimeType(ContentService.MimeType.TEXT);
+
+  }
+    if (action == 'getFileUrlByTrackingID') {
+    var trackingID = e.parameter.trackingID;
+
+    var fileUrl = getFileUrlByTrackingID(e, trackingID);
+    // return ContentService.createTextOutput(fileUrl);
+      return ContentService.createTextOutput(fileUrl).setMimeType(ContentService.MimeType.TEXT);
+  
+  } 
+
+   if (action == 'getParcelById') {
+    var parcelId = '54321'
+    return getParcelItembyId(e, parcelId);
+  }
+  
+    if (action == 'checkLogin') {
+    var email = e.parameter.email;
+     var password = e.parameter.pass;
+    var exists = checkLoginCredentials(email,password);
+    if (exists) {
+
+      return ContentService.createTextOutput("success").setMimeType(ContentService.MimeType.TEXT);
+    } else {
+      return ContentService.createTextOutput("Wrong Inexistent").setMimeType(ContentService.MimeType.TEXT);
+    }
+
+  }
+  if (action == 'checkQR') {
+    var trackingId = e.parameter.trackingId;
+    var exists = checkQrItem(e,trackingId);
+    if (exists) {
+
+      return ContentService.createTextOutput("Tracking ID exists "+ trackingId).setMimeType(ContentService.MimeType.TEXT);
+    } else {
+      return ContentService.createTextOutput("Tracking ID does not exist "+ trackingId).setMimeType(ContentService.MimeType.TEXT);
+    }
+
+  }
+  if (action == 'getCompNum'){
+    var trackingId = e.parameter.trackingId;
+    var compartmentNum = getCompartmentNumberByTrackingID(trackingId);
+
+    return  ContentService.createTextOutput(compartmentNum).setMimeType(ContentService.MimeType.TEXT);
+  }
+  if (action == 'getPhoneNumberByTracking'){
+    var trackingId = e.parameter.trackingId;
+    var userID = getUserIDFromParcelList(trackingId);
+    var phone = getPhoneNumberFromUserTable(userID);
+
+    return  ContentService.createTextOutput(phone).setMimeType(ContentService.MimeType.TEXT);
+  }
+ if (action == 'successDelivered'){
+    var trackingId = e.parameter.trackingId;
+    successDelivery(e,trackingId);
+    var userID = getUserIDFromParcelList(trackingId);
+    var tokens = getTokensFromDeviceLogin(userID);
+    for (var i = 0; i < tokens.length; i++) {
+    sendFCMNotification('Parcel-' + trackingId + ' Status Update', 'Parcel Successfully Delivered', tokens[i]);4
+       return  ContentService.createTextOutput(trackingId+" Success NOTIFICATION SENT").setMimeType(ContentService.MimeType.TEXT);
+
+  }
+ }
+  if (action == 'paymentReleased'){
+    var trackingId = e.parameter.trackingId;
+    paymentReleased(e,trackingId);
+    var userID = getUserIDFromParcelList(trackingId);
+    var tokens = getTokensFromDeviceLogin(userID);
+    for (var i = 0; i < tokens.length; i++) {
+    sendFCMNotification('Parcel-' + trackingId + ' Status Update', 'Payment has been released', tokens[i]);
+   return  ContentService.createTextOutput(trackingId+" PAYMENT NOTIFICATION SENT").setMimeType(ContentService.MimeType.TEXT);
+
+  }
+ }
+  if (action == 'checkQRParcel') {
+   var trackingId = e.parameter.trackingId;
+  
+  var isMobileWallet = checkQrItemFromParcelList(e, trackingId);
+  var userID = getUserIDFromParcelList(trackingId);
+  var tokens = getTokensFromDeviceLogin(userID);
+  var compartment =getCompartmentNumberByTrackingID(trackingId);
+  for (var i = 0; i < tokens.length; i++) {
+    sendFCMNotification('Parcel-' + trackingId + ' Status Update', 'Courier has Attempted Delivery - Parcel Scanned', tokens[i]);
+  }
+  // sendFCMNotification('Parcel-'+ trackingId+ ' Status Update ', 'Courier has Attempted Delivery - Parcel Scanned', token); 
+
+  if (isMobileWallet == "Mobile Wallet") {
+    return ContentService.createTextOutput("Tracking ID exists: " + trackingId + " and payment method is Mobile Wallet").setMimeType(ContentService.MimeType.TEXT);
+    } 
+    else if (isMobileWallet == "COD") {
+      if(compartment == "1"){
+            return ContentService.createTextOutput("Tracking ID exists: " + trackingId + " and payment method is COD 1").setMimeType(ContentService.MimeType.TEXT);
+      }
+      if(compartment == "2"){
+            return ContentService.createTextOutput("Tracking ID exists: " + trackingId + " and payment method is COD 2").setMimeType(ContentService.MimeType.TEXT);
+      }
+                  return ContentService.createTextOutput("Comp" + compartment ).setMimeType(ContentService.MimeType.TEXT);
+
+      
+  } else if (isMobileWallet == "Other Payment Method") {
+    return ContentService.createTextOutput("Tracking ID exists: " + trackingId + " but payment method is not Mobile Wallet").setMimeType(ContentService.MimeType.TEXT);
+  } else if (isMobileWallet == "Tracking ID does not exist"){
+    return ContentService.createTextOutput("Tracking ID does not exist: " + trackingId).setMimeType(ContentService.MimeType.TEXT);
+  }
+}
+if(action=='getUserIdByEmail'){
+  var userEmail = e.parameter.email;
+      return ContentService.createTextOutput( getUserIdfromUserwithEmail(userEmail)).setMimeType(ContentService.MimeType.TEXT);
+
+}
+
+  
+  
+}
+function getCurrentDate() {
+  var currentDate = new Date();
+  var formattedDate = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "yyyy-MM-dd|HH:mm");
+  return formattedDate;
+}
+function logOutDeleteDeviceLogin(token){
+  var sheetDevices = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("DeviceLogin");
+  var devicesData = sheetDevices.getDataRange().getValues();
+  var istokenExists = false;
+
+  for (var i = 1; i < devicesData.length; i++) {
+    if (devicesData[i][1] == token) {
+      istokenExists = true;
+      sheetDevices.deleteRow(i + 1);
+      break;
+    }
+  }
+}
+
+function getPhoneNumberFromUserTable(userID) {
+  var sheetUser = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('User');
+  var lastRow = sheetUser.getLastRow();
+  var userData = sheetUser.getRange('A2:D' + lastRow).getValues();
+
+  for (var i = 0; i < userData.length; i++) {
+    var id = userData[i][2];
+
+    if (id == userID) {
+      return userData[i][3];
+    }
+  }
+
+  return null; // Return null if userID is not found
+}
+
+
+//NOTIFICATIONS
+function getUserIDFromParcelList(trackingId) {
+  var sheetParcelList = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ParcelList');
+  var lastRow = sheetParcelList.getLastRow();
+  var parcelListData = sheetParcelList.getRange('A2:C' + lastRow).getValues();
+
+  for (var i = 0; i < parcelListData.length; i++) {
+    var id = parcelListData[i][1];
+
+    if (id == trackingId) {
+      return parcelListData[i][2];
+    }
+  }
+
+  return null; // Return null if trackingId is not found
+}
+
+function getCompartmentNumberByTrackingID(trackingId) {
+  var sheetParcelList = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('ParcelList');
+  var lastRow = sheetParcelList.getLastRow();
+  var parcelListCompData = sheetParcelList.getRange('A2:K' + lastRow).getValues();
+  for (var i = 0; i < parcelListCompData.length; i++) {
+    var id = parcelListCompData[i][1];
+    if (id == trackingId) {
+      return parcelListCompData[i][10];
+    }
+  }
+
+}
+
+//array of tokens from devicelogin
+function getTokensFromDeviceLogin(userID) {
+  var sheetDevices = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DeviceLogin');
+  var data = sheetDevices.getDataRange().getValues();
+  var tokens = [];
+
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] == userID) {
+      tokens.push(data[i][1]);
+    }
+  }
+
+  return tokens;
+}
+//single fcm from user
+function getTokenFromUserTable(userID) {
+  var sheetUser = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('User');
+  var lastRow = sheetUser.getLastRow();
+  var userData = sheetUser.getRange('A2:E' + lastRow).getValues();
+
+  for (var i = 0; i < userData.length; i++) {
+    var id = userData[i][2];
+
+    if (id == userID) {
+      return userData[i][4];
+    }
+  }
+
+  return null; // Return null if userID is not found
+}
+function getUserIdfromUserwithEmail(userEmail) {
+  var sheetUser = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('User');
+  var lastRow = sheetUser.getLastRow();
+  var userData = sheetUser.getRange('A2:E' + lastRow).getValues();
+
+  for (var i = 0; i < userData.length; i++) {
+    var id = userData[i][0];
+
+    if (id == userEmail) {
+      return userData[i][2];
+    }
+  }
+
+  return null; // Return null if userID is not found
+}
+
+function sendFCMNotification(title, message,token) {
+  var serverKey = 'AAAA-rJaoPM:APA91bFHO8xGFMjm7ce4JEEDrPGVJ8YFVPYjVMAAIDkjuG95bySvADfUdJ_--6CYFCQU9nXKQlrAb3aAaM3Ra5GZhzwx-cX5jlRQ-8s3CKlT051KDw5-u2RXDTUvO-PQsLcUu4mzxByi'; // Replace with your Firebase Server Key
+  var fcmUrl = 'https://fcm.googleapis.com/fcm/send';
+  
+  var payload = {
+    'notification': {
+      'title': title,
+      'body': message,
+      'sound': 'default'
+    },
+       'to': token
+  };
+  
+  var options = {
+    'method': 'POST',
+    'contentType': 'application/json',
+    'headers': {
+      'Authorization': 'key=' + serverKey
+    },
+    'payload': JSON.stringify(payload)
+  };
+  
+  UrlFetchApp.fetch(fcmUrl, options);
+}
+// FUNCTIONS
+function checkAndAppendParcelId(parcelId, paymentId, paymentType, trackingId){
+  var sheetPayment = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Payment");
+  var paymentData = sheetPayment.getDataRange().getValues();
+  var isParcelIdExists = false;
+
+  for (var i = 1; i < paymentData.length; i++) {
+    if (paymentData[i][1] == parcelId) {
+      isParcelIdExists = true;
+      sheetPayment.deleteRow(i + 1);
+      break;
+    }
+  }
+
+  if (paymentType == 'Mobile Wallet') {
+    if (!isParcelIdExists) {
+      sheetPayment.appendRow([paymentId, parcelId, 'Waiting for courier', 'Waiting for courier info', trackingId]);
+    } else {
+      // Append the updated row
+      sheetPayment.appendRow([paymentId, parcelId, 'Waiting for courier', 'Waiting for courier info', trackingId]);
+      }
+   }
+}
+function addCourierMobileInfo(e,trackingID, courierName, courierMobileWallet, mobileWalletType){
+  var sheetPayment = ss.getSheetByName('Payment');
+  var dataRange = sheetPayment.getDataRange();
+  var values = dataRange.getValues();
+  
+  for (var i = 0; i < values.length; i++) {
+    var row = values[i];
+    
+    if (row[4] == trackingID) { // Check if parcel ID matches
+      row[2] = courierName; // Update courier name
+      row[3] = courierMobileWallet; // Update courier mobile wallet
+      row[5]  = mobileWalletType; // same as others
+    }
+  }
+  
+  dataRange.setValues(values);
+
+}
+//IMAGES PROOFPAYMENT UPLOAD AND RETRIEVAL
+function addProofPaymentImage(trackingID, imageBlob){
+  var sheetPayment = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Payment');
+  var dataRange = sheetPayment.getDataRange();
+  var values = dataRange.getValues();
+    
+    var filename = 'ID_' + trackingID + "_" + Utilities.formatDate(new Date(), "GMT+4", "dd-MM-yyyy-HH-mm");
+    var data = Utilities.base64Decode(imageBlob);
+    var blob = Utilities.newBlob(data, "image/jpeg", filename);
+    var fileID = DriveApp.getFolderById('1pWlzWhx7c-XetrWcL5mZo0qbodC3ClCy').createFile(blob).getId();
+    var file = DriveApp.getFileById(fileID);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var fileUrl = "https://drive.google.com/uc?export=view&id=" + fileID;
+    
+    for (var i = 0; i < values.length; i++) {
+      var row = values[i];
+      
+      if (row[4] == trackingID) { // Check if parcel tracking ID matches
+        row[6] = fileUrl; // Update image URL
+      }
+    }
+    
+    dataRange.setValues(values);
+}
+function getFileUrlByTrackingID(e, trackingID) {
+  var sheetPayment = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Payment');
+  var dataRange = sheetPayment.getDataRange();
+  var values = dataRange.getValues();
+
+  for (var i = 0; i < values.length; i++) {
+    var row = values[i];
+
+    if (row[4] == trackingID) { // Check if parcel tracking ID matches
+    
+        if (row[6] == 'Pending'){
+        return 'empty'; // Return null if tracking ID not found
+        }
+        else{
+        return row[6]; // Return file URL
+
+        }
+    }
+  
+  }
+
+}
+
+function successDelivery(e, trackingId) {
+  var sheetParcelList = ss.getSheetByName('ParcelList');
+  var data = sheetParcelList.getDataRange().getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][1] == trackingId) {
+        sheetParcelList.getRange(i + 1, 8).setValue("Completed"); // Update the "status" column to "Attempt to deliver"
+        sheetParcelList.getRange(i + 1, 10).setValue(getCurrentDate()); // Update the "status" column to "Attempt to deliver"
+    }
+  }
+}
+function paymentReleased(e, trackingId) {
+  var sheetParcelList = ss.getSheetByName('ParcelList');
+  var data = sheetParcelList.getDataRange().getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][1] == trackingId) {
+        sheetParcelList.getRange(i + 1, 8).setValue("Payment released on delivery"); // Update the "status" column to "Attempt to deliver"
+    }
+  }
+}
+
+function checkQrItemFromParcelList(e, trackingId) {
+  var sheetParcelList = ss.getSheetByName('ParcelList');
+  var data = sheetParcelList.getDataRange().getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][1] == trackingId) {
+      if (data[i][4] == 'Mobile Wallet') { // Check if payment method is 'Mobile Wallet'
+        sheetParcelList.getRange(i + 1, 8).setValue("Attempting delivery"); // Update the "status" column to "Attempt to deliver"
+        return "Mobile Wallet"; // Payment method is 'Mobile Wallet'
+      } 
+      else if (data[i][4] == 'Cash on Delivery'){
+        sheetParcelList.getRange(i + 1, 8).setValue("Attempting delivery"); // Update the "status" column to "Attempt to deliver"
+        return "COD"; // Payment method is not 'Mobile Wallet'
+      }
+       else {
+        sheetParcelList.getRange(i + 1, 8).setValue("Attempting delivery"); // Update the "status" column to "Attempt to deliver"
+        return "Other Payment Method"; // Payment method is not 'Mobile Wallet'
+      }
+    }
+  }
+  return "Tracking ID does not exist"; // Tracking ID does not exist
+}
+function checkLoginCredentials(userEmail, password) {
+  var sheetUser = ss.getSheetByName('User');
+  var data = sheetUser.getDataRange().getValues();
+  
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0] == userEmail && data[i][1] == password) {
+      return true; // Return the user ID if the email and password match
+    }
+  }
+  
+  return false; // Return null if the email and password do not match
+}
+function getUserId(userEmail) {
+  var sheetUser = ss.getSheetByName('User');
+  var data = sheetUser.getDataRange().getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0] == userEmail) {
+      return data[i][2]; // Return the user ID if the email matches
+    }
+  }
+  
+  return "error getuserid"; // Return the error message if the email is not found
+
+}
+function checkQrItem(e,trackingId) {
+  var sheetQr = ss.getSheetByName('QR');
+  var data = sheetQr.getDataRange().getValues();
+  
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0] == trackingId) {
+      sheetQr.getRange(i + 1, 3).setValue("Attempt to deliver"); // Update the "status" column to "Attempt to deliver"
+      return true; // Tracking ID exists
+    }
+  }
+  
+  return false; // Tracking ID does not exist
+}
+function addQr(e){
+  var scannedData = e.parameter.sdata;
+  var d = new Date();
+  var ctime =  d.toLocaleString();
+    sheetQr.appendRow([scannedData,ctime]);
+  
+  return ContentService
+  .createTextOutput("Success")
+  .setMimeType(ContentService.MimeType.JAVASCRIPT);  
+
+}
+
+// ADD USER
+
+function addUserItem(e) {
+  var name = e.parameter.UserName;
+
+  sheetUser.appendRow([name]);
+  
+  return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+}
+function checkUserEmailAndInsertToken(userEmail, token) {
+  var sheetUser = ss.getSheetByName('User');
+  var lastRow = sheetUser.getLastRow();
+  var userEmails = sheetUser.getRange('A2:A' + lastRow).getValues();
+  var columnEIndex = 5; // Column E index is 5
+
+  for (var i = 0; i < userEmails.length; i++) {
+    var email = userEmails[i][0];
+
+    if (email === userEmail) {
+      sheetUser.getRange(i + 2, columnEIndex).setValue(token);
+    }
+  }
+}
+function addUserIdandTokenToDeviceLogin(userId, token, device) {
+  var sheetDevices = ss.getSheetByName('DeviceLogin');
+  sheetDevices.appendRow([userId,token, device, getCurrentDate()]);
+}
+
+function registerUserItem(e) {
+  generateUserId();
+  var email = e.parameter.email;
+  var pass = e.parameter.pass;
+  var userid = genUserId;
+  var phone = e.parameter.phone;
+
+  sheetUser.appendRow([email,pass,userid,phone]);
+  
+  return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+}
+//UPPERCASE 
+
+// function convertBColumnToUppercase() {
+//   var sheetParcelList = ss.getSheetByName('ParcelList');
+//   var sheetPayment = ss.getSheetByName('Payment');
+//   var columnB = sheetParcelList.getRange("B:B");
+//   var valuesB = columnB.getValues();
+//   var columnE = sheetPayment.getRange("E:E");
+//   var valuesE = columnE.getValues();
+  
+//   for (var i = 0; i < valuesB.length; i++) {
+//     var valueB = valuesB[i][0];
+//     if (typeof value === "string") {
+//       valuesB[i][0] = valueB.toUpperCase();
+//     }
+//   }
+//    for (var i = 0; i < valuesE.length; i++) {
+//     var valuesE = valuesE[i][0];
+//     if (typeof value === "string") {
+//       valuesE[i][0] = valuesE.toUpperCase();
+//     }
+//   }
+//   columnE.setValues(valuesE);
+
+//   columnB.setValues(valuesB);
+// }
+
+// ADD PARCEL ITEM ONLYYYYYYYY
+function addParcelItemOnly(e) {
+
+    generatePaymentId();
+    generateUID();
+  var parcel_id = genParcelId;
+  var tracking_id = e.parameter.tracking_id.toUpperCase();
+  var user_id = e.parameter.user_id;
+  var orderTotal = e.parameter.orderTotal;
+  var paymentType = e.parameter.paymentType_id;
+  var paymentId = genPaymentId;
+  var productName = e.parameter.productName;
+  var deliveryStatus = 'Pending';
+  var order_id = e.parameter.order_id;
+  var date_received = 'Waiting To Receive';
+  var paymentCompartment = e.parameter.payment_Comp;
+
+  if (paymentType == 'Prepaid'){
+  sheetParcelList.appendRow([parcel_id, tracking_id, user_id, orderTotal, paymentType, paymentId, productName, deliveryStatus, order_id, date_received, 'None']);
+  }
+  if (paymentType == 'Cash on Delivery'){
+     sheetParcelList.appendRow([parcel_id, tracking_id, user_id, orderTotal, paymentType, paymentId, productName, deliveryStatus, order_id, date_received, paymentCompartment]);
+
+  }
+  if (paymentType =='Mobile Wallet'){
+     sheetParcelList.appendRow([parcel_id, tracking_id, user_id, orderTotal, paymentType, paymentId, productName, deliveryStatus, order_id, date_received, 'None']);
+     sheetPayment.appendRow([paymentId, parcel_id,'Waiting for courier', 'Waiting for courier info',tracking_id])
+  }
+  
+  return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+}
+
+
+// ADD PARCEL ITEM
+function addParcelItem(e) {
+
+  var parcel_id = e.parameter.parcel_id;
+  var tracking_id = e.parameter.tracking_id;
+  var user_id = e.parameter.user_id;
+  var orderTotal = e.parameter.orderTotal;
+  var paymentType_id = e.parameter.paymentType_id;
+  var courier_id = e.parameter.courier_id;
+  var productName = e.parameter.productName;
+  var deliveryStatus = e.parameter.deliveryStatus;
+  var order_id = e.parameter.order_id;
+  var date_received = e.parameter.date_received;
+
+
+  sheetParcelList.appendRow([parcel_id, tracking_id, user_id, orderTotal, paymentType_id, courier_id, productName, deliveryStatus, order_id, date_received]);
+  
+  return ContentService.createTextOutput("Success").setMimeType(ContentService.MimeType.TEXT);
+}
+
+
+//GET PARCEL LIST BY PARCELID FOR UPDATE:
+function getParcelItembyId(e, parcelId) {
+ 
+  var rows = sheetParcelList.getRange(2, 1, sheetParcelList.getLastRow() - 1, sheetParcelList.getLastColumn()).getValues();
+  var data = {};
+
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r];
+    if (row[0] == parcelId) { // Assuming parcel_id is in the first column (column index 0)
+      data['parcel_id'] = row[0];
+      data['tracking_id'] = row[1];
+      data['user_id'] = row[2];
+      data['orderTotal'] = row[3];
+      data['paymentType_id'] = row[4];
+      data['payment_id'] = row[5];
+      data['productName'] = row[6];
+      data['deliveryStatus'] = row[7];
+      data['order_id'] = row[8];
+      data['date_received'] = row[9];
+      break;
+    }
+  }
+
+  var result = JSON.stringify(data);
+
+  return ContentService.createTextOutput(result).setMimeType(ContentService.MimeType.JSON);
+}
+
+// GET PARCEL LIST ITEMS
+function getParcelItems(e) {
+  var records = {};
+  var rows = sheetParcelList.getRange(2, 1, sheetParcelList.getLastRow() - 1, 11).getValues();
+  var data = [];
+
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r];
+    var record = {};
+    record['parcel_id'] = row[0];
+    record['tracking_id'] = row[1];
+    record['user_id'] = row[2];
+    record['orderTotal'] = row[3];
+    record['paymentType_id'] = row[4];
+    record['payment_id'] = row[5];
+    record['productName'] = row[6];
+    record['deliveryStatus'] = row[7];
+    record['order_id'] = row[8];
+    record['date_received'] = row[9];
+    record['paymentCompartment'] = row[10];
+
+    data.push(record);
+  }
+
+  records.items = data;
+  var result = JSON.stringify(record);
+  
+  return ContentService.createTextOutput(result).setMimeType(ContentService.MimeType.JSON);
+}
+function getPayMobileInfoByParcelId(parcelId) {
+  var records = {};
+  var parcelListSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("ParcelList");
+  var paymentSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Payment");
+
+  // Get data from ParcelList table
+  var parcelListData = parcelListSheet.getRange(2, 1, parcelListSheet.getLastRow() - 1, 11).getValues();
+  var parcelListItems = [];
+
+  // Iterate over ParcelList data
+  for (var i = 0; i < parcelListData.length; i++) {
+    var row = parcelListData[i];
+
+    if (row[0] == parcelId) {
+      var record = {};
+      record['parcel_id'] = row[0];
+      record['tracking_id'] = row[1];
+      record['user_id'] = row[2];
+      record['orderTotal'] = row[3];
+      record['paymentMethod'] = row[4];
+      record['payment_id'] = row[5];
+      record['productName'] = row[6];
+      record['deliveryStatus'] = row[7];
+      record['order_id'] = row[8];
+      record['date_received'] = row[9];
+      record['paymentCompartment'] = row[10];
+
+      parcelListItems.push(record);
+    }
+  }
+
+  // Get data from payment table
+  var paymentData = paymentSheet.getDataRange().getValues();
+  var paymentItems = [];
+
+  // Iterate over payment data
+  for (var j = 0; j < paymentData.length; j++) {
+    var row = paymentData[j];
+
+    // Check if the parcel_id matches the provided parcelId
+    if (row[1] == parcelId) {
+      var record = {};
+      record['payment_id'] = row[0];
+      record['parcel_id'] = row[1];
+      record['courierName'] = row[2];
+      record['courierMobileWallet'] = row[3];
+      record['tracking_id'] = row[4];
+      record['mobileWalletType'] = row[5];
+      record['paymentProof'] = row[6];
+
+      paymentItems.push(record);
+    }
+  }
+
+  records.parcelList = parcelListItems;
+  records.payment = paymentItems;
+  var result = JSON.stringify(records);
+
+  return ContentService.createTextOutput(result).setMimeType(ContentService.MimeType.JSON);
+}
+// }
+// function getParcelItems1(e) {
+//   var records = {};
+//   var rows = sheetParcelList.getRange(2, 1, sheetParcelList.getLastRow() - 1, sheetParcelList.getLastColumn()).getValues();
+//   var data = [];
+
+//   for (var r = 0; r < rows.length; r++) {
+//     var row = rows[r];
+//     var record = {};
+//       data['parcel_id'] = row[0];
+//       data['tracking_id'] = row[1];
+//       data['user_id'] = row[2];
+//       data['orderTotal'] = row[3];
+//       data['paymentType_id'] = row[4];
+//       data['payment_id'] = row[5];
+//       data['productName'] = row[6];
+//       data['deliveryStatus'] = row[7];
+//       data['order_id'] = row[8];
+//       data['date_received'] = row[9];
+//       data['paymentCompartment'] = row[10];
+
+//     data.push(record);
+//   }
+
+//   records.items = data;
+//   var result = JSON.stringify(records);
+  
+//   return ContentService.createTextOutput(result).setMimeType(ContentService.MimeType.JSON);
+// }
+function getUserInfo(userID) {
+  var records = {};
+  var rows = sheetUser.getRange(2, 1, sheetUser.getLastRow() - 1, sheetUser.getLastColumn()).getValues();
+  var data = [];
+
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r];
+    if (row[2] === userID) {
+      var record = {};
+      record['UserMail'] = row[0];
+      record['Password'] = row[1];
+      record['SMSNotifNumber'] = row[3];
+
+      data.push(record);
+    }
+  }
+
+  records.items = data;
+  var result = JSON.stringify(records);
+  
+  return ContentService.createTextOutput(result).setMimeType(ContentService.MimeType.JSON);
+}
+// GET USER LIST ITEMS
+function getUserItems(e) {
+  var records = {};
+  var rows = sheetUser.getRange(2, 1, sheetUser.getLastRow() - 1, sheetUser.getLastColumn()).getValues();
+  var data = [];
+
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r];
+    var record = {};
+    record['name'] = row[0];
+
+    data.push(record);
+  }
+
+  records.items = data;
+  var result = JSON.stringify(records);
+  
+  return ContentService.createTextOutput(result).setMimeType(ContentService.MimeType.JSON);
+}
+
+// GET QR LIST ITEMS
+function getQRList(e) {
+  var records = {};
+  var rows = sheetQr.getRange(2, 1, sheetQr.getLastRow() - 1, sheetQr.getLastColumn()).getValues();
+  var data = [];
+
+  for (var r = 0; r < rows.length; r++) {
+    var row = rows[r];
+    var record = {};
+    record['scannedData'] = row[0];
+    record['date'] = row[1];
+
+    data.push(record);
+  }
+
+  records.items = data;
+  var result = JSON.stringify(records);
+  
+  return ContentService.createTextOutput(result).setMimeType(ContentService.MimeType.JSON);
+}
+
+//DELETE ROWS 
+function deleteRowsByValue(sheet, columnIndex, value) {
+  var dataRange = sheet.getDataRange();
+  var values = dataRange.getValues();
+  var numRows = values.length;
+
+  for (var i = numRows - 1; i >= 0; i--) {
+    if (values[i][columnIndex] == value) {
+      sheet.deleteRow(i + 1);
+    }
+  }
+}
+function updateDeliveryRowsByValue(sheet, columnIndex, value, updatedValues) {
+  var dataRange = sheet.getDataRange();
+  var values = dataRange.getValues();
+  var numRows = values.length;
+
+  for (var i = numRows - 1; i >= 0; i--) {
+    if (values[i][columnIndex] == value) {
+      // Update the values in the row with the new values
+      for (var j = 0; j < updatedValues.length; j++) {
+        values[i][j] = updatedValues[j];
+      }
+      // Set the updated values back to the sheet
+      sheet.getRange(i + 1, 1, 1, updatedValues.length).setValues([updatedValues]);
+    }
+  }
+}
+function updateUserValue(sheet, userID, userEmail, userPass, userPhone) {
+  var dataRange = sheet.getDataRange();
+  var values = dataRange.getValues();
+  var numRows = values.length;
+
+  for (var i = numRows - 1; i >= 0; i--) {
+    if (values[i][2] == userID) {
+      // Update the values in the row with the new values
+      values[i][0] = userEmail;
+      values[i][1] = userPass;
+      values[i][3] = userPhone;
+
+      // Set the updated values back to the sheet
+      sheet.getRange(i + 1, 1, 1, values[i].length).setValues([values[i]]);
+      break; // Exit the loop after updating the first matching row
+    }
+  }
+}
+function updateRowsByValue(sheet, columnIndex, value, updatedValues) {
+  var dataRange = sheet.getDataRange();
+  var values = dataRange.getValues();
+  var numRows = values.length;
+
+  for (var i = numRows - 1; i >= 0; i--) {
+    if (values[i][columnIndex] == value) {
+      // Update the values in the row with the new values
+      for (var j = 0; j < updatedValues.length; j++) {
+        values[i][j] = updatedValues[j];
+      }
+      // Set the updated values back to the sheet
+      sheet.getRange(i + 1, 1, 1, updatedValues.length).setValues([updatedValues]);
+    }
+  }
+}
+
+
+function generatePaymentId () {
+var ID_LENGTH = 5;
+var ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+var ALPHABET2 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+var rtn = '';
+rtn += ALPHABET2.charAt(Math.floor(Math.random() * ALPHABET2.length));
+for (var i = 0; i < ID_LENGTH; i++) {
+rtn += ALPHABET.charAt(Math.floor(Math.random() * ALPHABET.length));
+}
+
+genPaymentId = 'pay-'+ rtn;
+return rtn;
+}
+function generateUserId () {
+var ID_LENGTH = 5;
+var ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+var ALPHABET2 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+var rtn = '';
+rtn += ALPHABET2.charAt(Math.floor(Math.random() * ALPHABET2.length));
+for (var i = 0; i < ID_LENGTH; i++) {
+rtn += ALPHABET.charAt(Math.floor(Math.random() * ALPHABET.length));
+}
+
+genUserId = 'user-'+ rtn;
+return rtn;
+}
+function generateUID () {
+var ID_LENGTH = 5;
+var ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+var ALPHABET2 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+var rtn = '';
+rtn += ALPHABET2.charAt(Math.floor(Math.random() * ALPHABET2.length));
+for (var i = 0; i < ID_LENGTH; i++) {
+rtn += ALPHABET.charAt(Math.floor(Math.random() * ALPHABET.length));
+}
+
+genParcelId = 'prcl-'+ rtn;
+return  rtn;
+}
