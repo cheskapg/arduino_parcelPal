@@ -1,0 +1,568 @@
+#include <SoftwareSerial.h>
+#include <Servo.h>
+
+//new code
+SoftwareSerial BTSerial(2, 3);  // RX, TX pins for the Bluetooth module
+
+
+
+
+#define TRIG_PIN 4  // Define the pins for HC-SR04 sensor
+#define ECHO_PIN 5
+#define MOTOR_ENA 6                 // Enable pin for motor driver // removing for vacancy will transfer to 5v
+#define MOTOR_IN1 9                 // Motor driver input pin 1
+#define MOTOR_IN2 10                // Motor driver input pin 2
+#define REED_SWITCH_PIN_DOOR 8      // Reed switch pin for door closed
+#define REED_SWITCH_PIN_CONTACT 11  // Reed switch pin for contact detection
+#define pinbitch 13                 //testwr
+
+//Relays
+const int MAIN_DOOR_VALVE = A0;  // Relay 1 connected to analog pin A0
+const int TRAP_DOOR_VALVE = A1;  // Relay 2 connected to analog pin A1
+// const int COMP1_VALVE = A2;      // Relay  3 connected to analog pin A2
+// const int COMP2_VALVE = A3;      // Relay 4 connected to analog pin A3
+
+//SENSORS
+int sensorPin1 = A2;
+int sensorPin2 = A3;
+int sensorPin3 = A4;
+int sensorPin4 = A5;
+
+int previousValue1 = analogRead(sensorPin1);
+int previousValue2 = analogRead(sensorPin1);
+int previousValue3 = analogRead(sensorPin3);
+int previousValue4 = analogRead(sensorPin4);
+
+//SERVOS
+Servo servo1;
+Servo servo2;
+Servo servo3;
+Servo servo4;
+
+char combinations = "";
+
+bool isMotorRunning = false;
+
+void setup() {
+  // Set the baud rate for both the hardware and software serial ports
+  Serial.begin(9600);    // Serial monitor for debugging
+  BTSerial.begin(9600);  // Bluetooth module baud rate
+
+  // Define pin modes
+  pinMode(TRIG_PIN, OUTPUT);  //Ultrasonic pins
+  pinMode(ECHO_PIN, INPUT);
+
+  pinMode(MAIN_DOOR_VALVE, OUTPUT);
+  pinMode(TRAP_DOOR_VALVE, OUTPUT);
+  // pinMode(COMP1_VALVE, OUTPUT);
+  // pinMode(COMP2_VALVE, OUTPUT);
+
+
+  pinMode(MOTOR_ENA, OUTPUT);
+  pinMode(MOTOR_IN1, OUTPUT);
+  pinMode(MOTOR_IN2, OUTPUT);
+  pinMode(REED_SWITCH_PIN_DOOR, INPUT);     // Enable internal pull-up resistor for the door reed switch
+  pinMode(REED_SWITCH_PIN_CONTACT, INPUT);  // Enable internal pull-up resistor for the contact reed switch
+
+  pinMode(pinbitch, INPUT);  //tEEST
+
+  digitalWrite(MAIN_DOOR_VALVE, HIGH);
+  digitalWrite(TRAP_DOOR_VALVE, HIGH);
+  // digitalWrite(COMP1_VALVE, HIGH);
+  // digitalWrite(COMP2_VALVE, HIGH);
+
+  servo1.attach(6);   // Attach servo1 to pin 6
+  servo2.attach(7);   // Attach servo2 to pin 7
+  servo1.attach(12);  // Attach servo1 to pin 12
+  servo2.attach(13);  // Attach servo2 to pin 13
+}
+void loop() {
+  // char BTTEST = BTSerial.read();
+  // // int pinState = digitalRead(pinbitch);
+  // Serial.print("TRIGGER State: ");
+  // Serial.println(BTTEST);
+
+  //  // Monitor the pin continuously
+  // // Keep monitoring the pin
+  // char newBTTEST = BTSerial.read();
+  // if (newBTTEST != BTTEST) {
+  //   BTTEST = newBTTEST;
+  //   Serial.print("COMMANDState: ");
+  //   Serial.println(BTTEST);
+  //   delay(500);  // need DELAY
+  // }
+  //DOOR SENSOR
+  int REEDPIN = digitalRead(REED_SWITCH_PIN_DOOR);
+  Serial.print("REED State: ");
+  Serial.println(REEDPIN);
+  //trap door sensor
+  int trapPIN = digitalRead(REED_SWITCH_PIN_CONTACT);
+  Serial.print("trapPIN State: ");
+  Serial.println(trapPIN);
+  delay(500);  // need DELAY
+  BTSerial.println("Waiting");
+
+  int newReed = digitalRead(REED_SWITCH_PIN_DOOR);
+  if (newReed != REEDPIN) {
+    REEDPIN = newReed;
+    Serial.print("REED State: ");
+    Serial.println(REEDPIN);
+    delay(500);  // need DELAY
+  }
+  int newCONTACT = digitalRead(REED_SWITCH_PIN_CONTACT);
+  if (newCONTACT != trapPIN) {
+    trapPIN = newCONTACT;
+    Serial.print("trapPIN State: ");
+    Serial.println(trapPIN);
+    delay(500);  // need DELAY
+  }
+  int DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+
+
+  //SENSOR LOOP FOR MONITORING
+  int value1 = analogRead(sensorPin1);
+  int value2 = analogRead(sensorPin2);
+  int value3 = analogRead(sensorPin3);
+  int value4 = analogRead(sensorPin4);
+
+  if (value1 != previousValue1) {
+    // Distance has changed for sensor 1
+    if (value1 < 500) {
+      // Object detected near sensor 1
+      Serial.println("Object detected near sensor 1");
+    } else {
+      // Area is empty near sensor 1
+      combinations += "empty 1,";
+      Serial.println(combinations);
+    }
+    previousValue1 = value1;
+  }
+  if (value2 != previousValue2) {
+    // Distance has changed for sensor 2
+    if (value2 < 500) {
+      // Object detected near sensor 2
+      Serial.println("Object detected near sensor 2");
+    } else {
+      // Area is empty near sensor 2
+      combinations += "empty 2,";
+      Serial.println(combinations);
+    }
+    previousValue2 = value2;
+  }
+
+  if (value3 != previousValue3) {
+    // Distance has changed for sensor 3
+    if (value3 < 500) {
+      // Object detected near sensor 3
+      Serial.println("Object detected near sensor 3");
+    } else {
+      // Area is empty near sensor 3
+      combinations += "empty 3,";
+      Serial.println(combinations);
+    }
+    previousValue3 = value3;
+  }
+
+  if (value4 != previousValue4) {
+    // Distance has changed for sensor 4
+    if (value4 < 500) {
+      // Object detected near sensor 4
+      Serial.println("Object detected near sensor 4");
+    } else {
+      // Area is empty near sensor 4
+      combinations += "empty 4,";
+      Serial.println(combinations);
+    }
+    previousValue4 = value4;
+  }
+
+  // Remove the trailing comma if any
+  combinations.trim();
+  combinations.remove(combinations.length() - 1);
+
+  // Print combinations to Serial Monitor
+  if (!combinations.isEmpty()) {
+    Serial.println(combinations);
+  } else {
+    Serial.println("All Compartments filled");
+  }
+
+
+  //-----------------------------------------------------------
+  if (BTSerial.available()) {
+    char receivedChar = "Waiting";
+    receivedChar = BTSerial.read();  // Read the character received from Bluetooth
+
+    while (receivedChar == "Waiting") {
+      BTSerial.println("Waiting");
+      receivedChar = BTSerial.read();  // Read the character received from Bluetooth
+
+      delay(1000);  // 1 second delay
+    }
+
+    // Check for the received character and perform actions based on cases
+    switch (receivedChar) {
+      case 'A':
+        BTSerial.println("Waiting message");
+
+        // Case A: Do something for Case A
+        Serial.println("Received Case A");
+        digitalWrite(MAIN_DOOR_VALVE, LOW);  // Opens the main door valve
+        delay(2000);                         // need DELAY
+
+        // Wait for the door to be closed
+        while (DOORSENSOR == HIGH) {
+
+          Serial.println("Door is waiting to open");
+          delay(500);
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        while (DOORSENSOR == LOW) {
+          delay(500);
+
+          Serial.println("Door is open");
+          delay(500);
+
+          digitalWrite(REED_SWITCH_PIN_DOOR, LOW);
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        delay(500);  // need DELAY
+        // Check if the door is closed using the reed switch
+        if (DOORSENSOR == HIGH) {
+
+          digitalWrite(MAIN_DOOR_VALVE, HIGH);  // Closes the main door valve if the door sensor detects that the door is closed
+
+          // Check the HC-SR04 sensor values
+          if (isDistanceDecreasing()) {
+            // Start the motor forward for 4 seconds
+            digitalWrite(TRAP_DOOR_VALVE, LOW);
+            startMotorBackward();
+            delay(700);  // Run the motor forward for 4 seconds (adjust as needed)
+            startMotorForward();
+            delay(20000);  // Run the motor forward for 4 seconds (adjust as needed)
+            digitalWrite(TRAP_DOOR_VALVE, HIGH);
+            stopMotor();
+            delay(500);  // need DELAY
+            // BTSerial.println("ParcelSecured");  // Call back for sequence 1
+
+            // Start the motor backward until the contact reed switch detects contact
+            while (!isContactDetected()) {
+              startMotorBackward();
+
+              // Keep running the motor backward until contact is detected
+            }
+            stopMotor();
+
+
+            delay(1000);       //Delay
+            servo1.write(90);  // Open compartment 1
+            delay(1000);       // Open compartment 1 for 1 second
+            servo1.write(0);   // Close compartment 1
+            BTSerial.println("AA");
+            delay(1000);  // 1 second delay
+          }
+        }
+        break;
+
+      case 'B':
+        // Case B: Add your code for Case B here
+        Serial.println("Received Case B");
+        digitalWrite(MAIN_DOOR_VALVE, LOW);  // Opens the main door valve
+        delay(2000);                         // need DELAY
+
+        // Wait for the door to be closed
+        while (DOORSENSOR == HIGH) {
+          Serial.println("Door is waiting to open");
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        while (DOORSENSOR == LOW) {
+          Serial.println("Door is open");
+          digitalWrite(REED_SWITCH_PIN_DOOR, LOW);
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        delay(500);  // need DELAY
+
+        // Check if the door is closed using the reed switch
+        if (DOORSENSOR == HIGH) {
+          digitalWrite(MAIN_DOOR_VALVE, HIGH);  // Closes the main door valve if the door sensor detects that the door is closed
+
+          // Check the HC-SR04 sensor values
+          if (isDistanceDecreasing()) {
+            // Start the motor forward for 4 seconds
+            digitalWrite(TRAP_DOOR_VALVE, LOW);
+            startMotorBackward();
+            delay(700);  // Run the motor forward for 4 seconds (adjust as needed)
+            startMotorForward();
+            delay(20000);  // Run the motor forward for 4 seconds (adjust as needed)
+            digitalWrite(TRAP_DOOR_VALVE, HIGH);
+            stopMotor();
+            delay(500);  // need DELAY
+
+            // Start the motor backward until the contact reed switch detects contact
+            while (!isContactDetected()) {
+              startMotorBackward();
+
+              // Keep running the motor backward until contact is detected
+            }
+            stopMotor();
+
+            delay(1000);       //Delay
+            servo2.write(90);  // Open compartment 2
+            delay(1000);       // Open compartment 2 for 1 second
+            servo2.write(0);   // Close compartment 2
+            BTSerial.println("BB");
+          }
+        }
+        break;
+      case 'C':
+        Serial.println("Received Case C");
+        digitalWrite(MAIN_DOOR_VALVE, LOW);  // Opens the main door valve
+        delay(2000);                         // need DELAY
+
+        // Wait for the door to be closed
+        while (DOORSENSOR == HIGH) {
+          Serial.println("Door is waiting to open");
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        while (DOORSENSOR == LOW) {
+          Serial.println("Door is open");
+          digitalWrite(REED_SWITCH_PIN_DOOR, LOW);
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        delay(500);  // need DELAY
+
+        // Check if the door is closed using the reed switch
+        if (DOORSENSOR == HIGH) {
+          digitalWrite(MAIN_DOOR_VALVE, HIGH);  // Closes the main door valve if the door sensor detects that the door is closed
+
+          // Check the HC-SR04 sensor values
+          if (isDistanceDecreasing()) {
+            // Start the motor forward for 4 seconds
+            digitalWrite(TRAP_DOOR_VALVE, LOW);
+            startMotorBackward();
+            delay(700);  // Run the motor forward for 4 seconds (adjust as needed)
+            startMotorForward();
+            delay(20000);  // Run the motor forward for 4 seconds (adjust as needed)
+            digitalWrite(TRAP_DOOR_VALVE, HIGH);
+            stopMotor();
+            delay(500);  // need DELAY
+
+            // Start the motor backward until the contact reed switch detects contact
+            while (!isContactDetected()) {
+              startMotorBackward();
+
+              // Keep running the motor backward until contact is detected
+            }
+            stopMotor();
+
+            delay(1000);       //Delay
+            servo3.write(90);  // Open compartment 3
+            delay(1000);       // Open compartment 3 for 1 second
+            servo3.write(0);   // Close compartment 3
+            BTSerial.println("CC");
+          }
+        }
+        break;
+      case 'D':
+        Serial.println("Received Case D");
+        digitalWrite(MAIN_DOOR_VALVE, LOW);  // Opens the main door valve
+        delay(2000);                         // need DELAY
+
+        // Wait for the door to be closed
+        while (DOORSENSOR == HIGH) {
+          Serial.println("Door is waiting to open");
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        while (DOORSENSOR == LOW) {
+          Serial.println("Door is open");
+          digitalWrite(REED_SWITCH_PIN_DOOR, LOW);
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        delay(500);  // need DELAY
+
+        // Check if the door is closed using the reed switch
+        if (DOORSENSOR == HIGH) {
+          digitalWrite(MAIN_DOOR_VALVE, HIGH);  // Closes the main door valve if the door sensor detects that the door is closed
+
+          // Check the HC-SR04 sensor values
+          if (isDistanceDecreasing()) {
+            // Start the motor forward for 4 seconds
+            digitalWrite(TRAP_DOOR_VALVE, LOW);
+            startMotorBackward();
+            delay(700);  // Run the motor forward for 4 seconds (adjust as needed)
+            startMotorForward();
+            delay(20000);  // Run the motor forward for 4 seconds (adjust as needed)
+            digitalWrite(TRAP_DOOR_VALVE, HIGH);
+            stopMotor();
+            delay(500);  // need DELAY
+
+            // Start the motor backward until the contact reed switch detects contact
+            while (!isContactDetected()) {
+              startMotorBackward();
+
+              // Keep running the motor backward until contact is detected
+            }
+            stopMotor();
+
+            delay(1000);       //Delay
+            servo4.write(90);  // Open compartment 4
+            delay(1000);       // Open compartment 4 for 1 second
+            servo4.write(0);   // Close compartment 4
+            BTSerial.println("DD");
+          }
+        }
+        break;
+
+      case 'E':
+        // Case C: Add your code for Case C here
+
+        Serial.println("Received Case E");
+        digitalWrite(MAIN_DOOR_VALVE, LOW);  // Opens the main door valve
+        delay(2000);                         // need DELAY
+
+        // Wait for the door to be closed
+        while (DOORSENSOR == HIGH) {
+          Serial.println("Door is waiting to open");
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        while (DOORSENSOR == LOW) {
+          Serial.println("Door is open");
+          digitalWrite(REED_SWITCH_PIN_DOOR, LOW);
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        delay(500);  // need DELAY
+
+        // Check if the door is closed using the reed switch
+        if (DOORSENSOR == HIGH) {
+          digitalWrite(MAIN_DOOR_VALVE, HIGH);  // Closes the main door valve if the door sensor detects that the door is closed
+
+          // Check the HC-SR04 sensor values
+          if (isDistanceDecreasing()) {
+            // Start the motor forward for 4 seconds
+            digitalWrite(TRAP_DOOR_VALVE, LOW);
+            startMotorBackward();
+            delay(700);  // Run the motor forward for 4 seconds (adjust as needed)
+            startMotorForward();
+            delay(20000);  // Run the motor forward for 4 seconds (adjust as needed)
+            digitalWrite(TRAP_DOOR_VALVE, HIGH);
+            stopMotor();
+            delay(500);  // need DELAY
+
+            // Start the motor backward until the contact reed switch detects contact
+            while (!isContactDetected()) {
+              startMotorBackward();
+
+              // Keep running the motor backward until contact is detected
+            }
+            stopMotor();
+
+            delay(1000);  //Delay
+
+            BTSerial.println("EE");  // Call back for sequence 3
+          }
+        }
+        break;
+
+      case 'F':
+        // Case D: Add your code for Case C here MOBILE PAYMENT
+        Serial.println("Received Case F");
+        digitalWrite(MAIN_DOOR_VALVE, LOW);  // Opens the main door valve
+        delay(2000);                         // need DELAY
+
+        // Wait for the door to be closed
+        while (DOORSENSOR == HIGH) {
+          Serial.println("Door is waiting to open");
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        while (DOORSENSOR == LOW) {
+          Serial.println("Door is open");
+          digitalWrite(REED_SWITCH_PIN_DOOR, LOW);
+          DOORSENSOR = digitalRead(REED_SWITCH_PIN_DOOR);
+        }
+        delay(500);  // need DELAY
+
+        // Check if the door is closed using the reed switch
+        if (DOORSENSOR == HIGH) {
+          digitalWrite(MAIN_DOOR_VALVE, HIGH);  // Closes the main door valve if the door sensor detects that the door is closed
+                                                //IF NO PACKAGE SEND TO ANDROID NO PACKAGE DETECTED REUNLOCK SEQUENCE AGAIN
+          // Check the HC-SR04 sensor values
+          if (isDistanceDecreasing()) {
+            // Start the motor forward for 4 seconds
+            digitalWrite(TRAP_DOOR_VALVE, LOW);
+            startMotorBackward();
+            delay(700);  // Run the motor forward for 4 seconds (adjust as needed)
+            startMotorForward();
+            delay(20000);  // Run the motor forward for 4 seconds (adjust as needed)
+            digitalWrite(TRAP_DOOR_VALVE, HIGH);
+            stopMotor();
+            delay(500);  // need DELAY
+
+            // Start the motor backward until the contact reed switch detects contact
+            while (!isContactDetected()) {
+              startMotorBackward();
+
+              // Keep running the motor backward until contact is detected
+            }
+            stopMotor();
+          } else {
+            digitalWrite(MAIN_DOOR_VALVE, LOW);  //
+          }
+          BTSerial.println("Mobile");
+        }
+        break;
+      default:
+        // If an unrecognized character is received, do nothing
+        break;
+    }
+  }
+}
+
+bool isDistanceDecreasing() {
+  // Measure distance with HC-SR04
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  long duration = pulseIn(ECHO_PIN, HIGH);
+  float distance = (duration / 2.0) * 0.0343;  // Calculate distance in cm
+
+  Serial.print("Distance: ");
+  Serial.println(distance);
+
+  // You can adjust this threshold as needed
+  return distance < 30;  // Example threshold: 30 cm
+}
+
+bool isDoorClosed() {
+  return digitalRead(REED_SWITCH_PIN_DOOR) == HIGH;
+}
+
+bool isContactDetected() {
+  return digitalRead(REED_SWITCH_PIN_CONTACT) == HIGH;
+}
+
+void startMotorForward() {
+  digitalWrite(MOTOR_ENA, HIGH);
+  delay(200);
+  digitalWrite(MOTOR_IN1, HIGH);  // Motor input 1 HIGH
+  digitalWrite(MOTOR_IN2, LOW);   // Motor input 2 LOW
+  isMotorRunning = true;
+}
+
+void startMotorBackward() {
+  digitalWrite(MOTOR_ENA, HIGH);  // Enable the motor driver
+  delay(200);
+  digitalWrite(MOTOR_IN1, LOW);   // Motor input 1 LOW
+  digitalWrite(MOTOR_IN2, HIGH);  // Motor input 2 HIGH
+  isMotorRunning = true;
+}
+
+void stopMotor() {
+  digitalWrite(MOTOR_ENA, LOW);  // Disable the motor driver
+  delay(200);
+  digitalWrite(MOTOR_IN1, LOW);  // Motor input 1 LOW
+  digitalWrite(MOTOR_IN2, LOW);  // Motor input 2 LOW
+  isMotorRunning = false;
+}
